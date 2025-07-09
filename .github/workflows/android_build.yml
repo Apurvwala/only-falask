@@ -43,14 +43,11 @@ jobs:
           libgl1-mesa-dev \
           libgles2-mesa-dev
 
-    - name: Install Buildozer with Android support
+    - name: Install Python dependencies
       run: |
         pip install --upgrade pip
+        pip install cython
         pip install "buildozer[android]"
-
-    # DO NOT clean before python-for-android exists!
-    # - name: Clean previous builds
-    #   run: buildozer android clean
 
     - name: Build APK
       run: buildozer android debug
