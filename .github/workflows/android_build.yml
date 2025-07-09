@@ -30,8 +30,8 @@ jobs:
 
           echo "Installing system dependencies for Android build..."
           sudo apt-get update
-          # Essential build tools
-          sudo apt-get install -y git zip unzip openjdk-17-jdk python3-pip autoconf libtool pkg-config zlib1g-dev libncurses-dev libffi-dev libssl-dev
+          # Essential build tools including automake and libtool for autoconf issues
+          sudo apt-get install -y git zip unzip openjdk-17-jdk python3-pip autoconf automake libtool pkg-config zlib1g-dev libncurses-dev libffi-dev libssl-dev
           # Specific Cython version often required by Kivy/Buildozer
           pip install --upgrade Cython==0.29.36
 
@@ -65,6 +65,10 @@ jobs:
           sed -i '/^android\.targetsdk =/c\android.targetsdk = 33' buildozer.spec
           sed -i '/^android\.sdk =/d' buildozer.spec || true # Remove android.sdk if present
 
+          # Explicitly set Android NDK version to a known stable one for API 33
+          sed -i '/^#android\.ndk =/c\android.ndk = 25b' buildozer.spec || true # Add or update NDK version
+          # If android.ndk is already present but commented out or different, ensure it's 25b
+
           # Ensure all Python requirements are listed
           sed -i 's/^#requirements = python3,kivy$/requirements = python3,kivy,flask,numpy,requests,face_recognition,Pillow/' buildozer.spec
           # Ensure necessary Android permissions are set
@@ -86,6 +90,14 @@ jobs:
           echo "Accepting Android SDK licenses..."
           yes | buildozer android update # 'yes' command automatically inputs 'y' for prompts
           echo "Android SDK licenses accepted."
+
+      - name: Clean previous Buildozer build artifacts
+        # Clean the build directory to ensure a fresh build and avoid cached issues.
+        run: |
+          set -e
+          echo "Cleaning Buildozer build artifacts..."
+          buildozer android clean
+          echo "Buildozer clean completed."
 
       - name: Build Android Debug APK
         # This command triggers the full Buildozer build process.
