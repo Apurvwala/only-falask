@@ -18,7 +18,7 @@ jobs:
         with:
           python-version: '3.10'
 
-      - name: Install system dependencies
+      - name: Install dependencies
         run: |
           sudo apt-get update
           sudo apt-get install -y \
@@ -29,8 +29,7 @@ jobs:
             libsdl2-dev libsdl2-image-dev libsdl2-mixer-dev libsdl2-ttf-dev \
             libportmidi-dev libswscale-dev libavformat-dev libavcodec-dev \
             libfreetype6-dev libgl1-mesa-dev libgles2-mesa-dev \
-            libmtdev-dev \
-            build-essential autoconf libtool pkg-config \
+            libmtdev-dev build-essential autoconf libtool pkg-config \
             git python3-setuptools
 
       - name: Install Cython and Buildozer
@@ -38,15 +37,32 @@ jobs:
           pip install --upgrade pip Cython==0.29.36
           pip install buildozer
 
-      - name: Create .buildozer folder if missing
+      - name: Install Android SDK command line tools
         run: |
-          mkdir -p .buildozer
+          mkdir -p "$HOME/android-sdk"
+          cd "$HOME/android-sdk"
+          curl -o cmdline.zip https://dl.google.com/android/repository/commandlinetools-linux-10406996_latest.zip
+          unzip -q cmdline.zip -d cmdline-tools
+          mv cmdline-tools cmdline-tools/latest
+          yes | cmdline-tools/latest/bin/sdkmanager --sdk_root=${HOME}/android-sdk \
+            "platform-tools" \
+            "platforms;android-33" \
+            "build-tools;33.0.2" \
+            "ndk;25.2.9519653"
+
+      - name: Set environment variables
+        run: |
+          echo "export ANDROID_SDK_ROOT=$HOME/android-sdk" >> $GITHUB_ENV
+          echo "export PATH=$HOME/android-sdk/platform-tools:$HOME/.local/bin:$PATH" >> $GITHUB_ENV
+          echo "export PATH=$HOME/android-sdk/cmdline-tools/latest/bin:$PATH" >> $GITHUB_ENV
+          echo "export PATH=$HOME/android-sdk/build-tools/33.0.2:$PATH" >> $GITHUB_ENV
+          echo "sdk.dir=$HOME/android-sdk" > local.properties
 
       - name: Build APK with Buildozer
         run: |
           buildozer android debug
 
-      - name: Upload APK artifact
+      - name: Upload APK
         uses: actions/upload-artifact@v4
         with:
           name: faceappattendance-debug.apk
