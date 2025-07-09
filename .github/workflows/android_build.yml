@@ -3,7 +3,7 @@ name: Build APK
 on:
   push:
     branches:
-      - main  # or your default branch
+      - main
   workflow_dispatch:
 
 jobs:
@@ -26,7 +26,6 @@ jobs:
           build-essential \
           ccache \
           git \
-          libncurses5 \
           libffi-dev \
           libssl-dev \
           libsqlite3-dev \
@@ -40,7 +39,9 @@ jobs:
           libpng-dev \
           liblzma-dev \
           libtool \
-          automake
+          automake \
+          libgl1-mesa-dev \
+          libgles2-mesa-dev
 
         pip install --upgrade pip
         pip install buildozer cython
