@@ -2,61 +2,50 @@ name: Build APK
 
 on:
   push:
-    branches: [main]
-  workflow_dispatch:
+    branches:
+      - main
 
 jobs:
   build:
-    runs-on: ubuntu-22.04
+    runs-on: ubuntu-latest
 
     steps:
-    - name: Checkout code
-      uses: actions/checkout@v3
+      - name: Checkout code
+        uses: actions/checkout@v3
 
-    - name: Set up Python
-      uses: actions/setup-python@v4
-      with:
-        python-version: '3.10'
+      - name: Set up Python 3.9
+        uses: actions/setup-python@v4
+        with:
+          python-version: '3.9'
 
-    - name: Install system dependencies
-      run: |
-        sudo apt update
-        sudo apt install -y \
-          build-essential \
-          ccache \
-          git \
-          libffi-dev \
-          libssl-dev \
-          libsqlite3-dev \
-          libjpeg-dev \
-          libfreetype6-dev \
-          zlib1g-dev \
-          pkg-config \
-          unzip \
-          openjdk-17-jdk \
-          python3-pip \
-          libpng-dev \
-          liblzma-dev \
-          libtool \
-          automake \
-          libgl1-mesa-dev \
-          libgles2-mesa-dev
+      - name: Install Buildozer and Dependencies
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y \
+            zip unzip openjdk-17-jdk \
+            python3-pip libffi-dev libssl-dev \
+            libxml2-dev libxslt1-dev zlib1g-dev \
+            libncurses5 libncurses5-dev \
+            libsqlite3-dev libjpeg-dev \
+            libsdl2-dev libsdl2-image-dev libsdl2-mixer-dev libsdl2-ttf-dev \
+            libportmidi-dev libswscale-dev libavformat-dev libavcodec-dev \
+            libfreetype6-dev libgl1-mesa-dev libgles2-mesa-dev \
+            libgstreamer1.0 libgstreamer1.0-dev \
+            gstreamer1.0-plugins-base gstreamer1.0-plugins-good \
+            libmtdev-dev \
+            build-essential autoconf libtool pkg-config \
+            git python3-setuptools
 
-    - name: Install Python & Buildozer dependencies
-      run: |
-        pip install --upgrade pip
-        pip install cython
-        pip install "buildozer[android]"
+          python -m pip install --upgrade pip
+          pip install cython==0.29.33 virtualenv
+          pip install buildozer
 
-    - name: Set up Android SDK (build-tools, platforms, etc.)
-      run: |
-        yes | buildozer android update
+      - name: Build APK
+        run: |
+          buildozer android debug
 
-    - name: Build APK
-      run: buildozer android debug
-
-    - name: Upload APK
-      uses: actions/upload-artifact@v4
-      with:
-        name: app-debug.apk
-        path: bin/*.apk
+      - name: Upload APK
+        uses: actions/upload-artifact@v3
+        with:
+          name: faceappattendance-debug-apk
+          path: bin/*.apk
