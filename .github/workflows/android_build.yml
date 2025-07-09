@@ -39,16 +39,20 @@ jobs:
 
       - name: Ensure buildozer.spec has [buildozer] section and configure
         # This step ensures that a buildozer.spec file exists and is correctly configured.
-        # If buildozer.spec doesn't exist or doesn't contain the [buildozer] section,
-        # 'buildozer init' will be run to create/fix its basic structure.
-        # Then, it applies standard configurations for API levels, requirements, and permissions.
+        # It handles cases where the file might be missing or malformed (e.g., missing [buildozer] section).
         run: |
           set -e # Exit immediately if a command exits with a non-zero status.
 
-          # Check if buildozer.spec exists OR if it does not contain the [buildozer] section
+          # Check if buildozer.spec is missing OR if it exists but does not contain the [buildozer] section.
+          # If either is true, we remove the existing (potentially malformed) file and run 'buildozer init'.
           if [ ! -f buildozer.spec ] || ! grep -q "\[buildozer\]" buildozer.spec; then
-            echo "buildozer.spec is missing or does not contain the [buildozer] section. Running 'buildozer init' to ensure proper structure."
-            buildozer init
+            if [ -f buildozer.spec ]; then
+              echo "buildozer.spec exists but is missing the [buildozer] section or is malformed. Removing it to re-initialize."
+              rm buildozer.spec # Remove the existing file to allow 'buildozer init' to create a new one
+            else
+              echo "buildozer.spec is missing. Running 'buildozer init' to create it."
+            fi
+            buildozer init # Initialize a fresh buildozer.spec with default sections
             echo "buildozer.spec initialized."
           else
             echo "buildozer.spec found and contains [buildozer] section. Proceeding with configuration."
