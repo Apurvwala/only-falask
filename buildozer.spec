@@ -39,6 +39,8 @@ android.permissions = INTERNET, CAMERA, READ_EXTERNAL_STORAGE, WRITE_EXTERNAL_ST
 android.api = 33
 android.minapi = 21 # Android 5.0 Lollipop
 android.targetsdk = 33
+# NDK API level (21 = Android 5.0 Lollipop)
+android.ndk_api = 21
 
 # (str) Android NDK version (optional, default is latest stable)
 # android.ndk = 25b
