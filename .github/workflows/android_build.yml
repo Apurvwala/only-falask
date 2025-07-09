@@ -8,61 +8,97 @@ on:
 jobs:
   build:
     runs-on: ubuntu-latest
-    timeout-minutes: 120 # Increased timeout for initial Buildozer setup (can be very long)
+    timeout-minutes: 180 # Increased timeout further, as the full build process can be very long
 
     steps:
       - name: Checkout code
         uses: actions/checkout@v4
 
-      - name: Install Buildozer (manual install for init step)
-        # We need Buildozer installed here to run 'buildozer init' if the spec is missing.
-        run: |
-          pip install buildozer
-          # Install basic system dependencies needed for buildozer init and subsequent steps
-          sudo apt-get update
-          sudo apt-get install -y git zip unzip python3-pip autoconf libtool pkg-config zlib1g-dev libncurses-dev libffi-dev libssl-dev
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.9' # Specify a Python version compatible with Kivy/Buildozer
 
-      - name: Initialize or Verify buildozer.spec
-        # This step ensures that a buildozer.spec file exists and has a basic structure.
-        # If buildozer.spec doesn't exist, 'buildozer init' will create a default one.
-        # If it exists, this step effectively verifies its presence before modification.
+      - name: Install Buildozer and all Android build dependencies
+        # This step installs Buildozer and all necessary system-level tools
+        # required for a complete Android SDK/NDK setup and compilation.
         run: |
           set -e # Exit immediately if a command exits with a non-zero status.
+
+          echo "Installing Buildozer..."
+          pip install buildozer
+
+          echo "Installing system dependencies for Android build..."
+          sudo apt-get update
+          # Essential build tools
+          sudo apt-get install -y git zip unzip openjdk-17-jdk python3-pip autoconf libtool pkg-config zlib1g-dev libncurses-dev libffi-dev libssl-dev
+          # Specific Cython version often required by Kivy/Buildozer
+          pip install --upgrade Cython==0.29.36
+
+          # Ensure Android SDK/NDK are set up correctly for Buildozer
+          # Buildozer will download these, but sometimes pre-installing helps.
+          # The 'buildozer android debug' command will trigger the full download.
+
+          echo "System dependencies and Buildozer installed."
+
+      - name: Initialize and Configure buildozer.spec
+        # This step ensures that a buildozer.spec file exists and is correctly configured.
+        # If buildozer.spec doesn't exist, 'buildozer init' will create a default one.
+        # Then, it applies standard configurations for API levels, requirements, and permissions.
+        run: |
+          set -e # Exit immediately if a command exits with a non-zero status.
+
           if [ ! -f buildozer.spec ]; then
             echo "buildozer.spec not found. Initializing with 'buildozer init'..."
             buildozer init
-            # After init, ensure basic requirements and permissions are set for the build to proceed
-            sed -i 's/^#requirements = python3,kivy$/requirements = python3,kivy,flask,numpy,requests,face_recognition,Pillow/' buildozer.spec || true
-            sed -i 's/^#android\.permissions =/android.permissions = INTERNET,CAMERA,READ_EXTERNAL_STORAGE,WRITE_EXTERNAL_STORAGE/' buildozer.spec || true
-            echo "Default buildozer.spec created and basic requirements/permissions set."
+            echo "Default buildozer.spec created."
           else
             echo "buildozer.spec found. Proceeding with modifications."
           fi
-          # Ensure Android API levels are set to a stable version (e.g., 33)
-          # This helps prevent issues with Buildozer trying to download non-existent or unstable build tools.
+
+          echo "Configuring buildozer.spec for Android build..."
+          # Set Android API levels to a stable version (e.g., 33)
           sed -i '/^android\.api =/c\android.api = 33' buildozer.spec || true
+          sed -i '/^android\.minapi =/c\android.minapi = 21' buildozer.spec || true
           sed -i '/^android\.targetsdk =/c\android.targetsdk = 33' buildozer.spec || true
-          # Optionally, remove android.sdk if it's present, letting buildozer default based on api level
+          # Remove android.sdk if it's present, letting buildozer default based on api level
           sed -i '/^android\.sdk =/d' buildozer.spec || true
-          echo "buildozer.spec updated to use Android API 33."
+
+          # Ensure all Python requirements are listed
+          sed -i 's/^#requirements = python3,kivy$/requirements = python3,kivy,flask,numpy,requests,face_recognition,Pillow/' buildozer.spec || true
+          # Ensure necessary Android permissions are set
+          sed -i 's/^#android\.permissions =/android.permissions = INTERNET,CAMERA,READ_EXTERNAL_STORAGE,WRITE_EXTERNAL_STORAGE/' buildozer.spec || true
+          # Set main.py entry point
+          sed -i 's/^#main\.py = main\.py$/main.py = main.py/' buildozer.spec || true
+          # Set package name and domain (customize these in your actual buildozer.spec file)
+          sed -i 's/^#package\.name = org\.test\.myapp$/package.name = com.yourcompany.faceappattendance/' buildozer.spec || true
+          sed -i 's/^#package\.domain = org\.test$/package.domain = yourcompany.com/' buildozer.spec || true
+
+
+          echo "Final buildozer.spec content:"
           cat buildozer.spec # Print the updated spec for verification in logs
 
+      - name: Build Android Debug APK
+        # This command triggers the full Buildozer build process.
+        # It will download Android SDK/NDK, accept licenses, compile Python, and create the APK.
+        # This is the step that takes the most time.
+        run: |
+          set -e # Exit immediately if a command exits with a non-zero status.
+          echo "Starting Buildozer Android debug build..."
+          buildozer android debug
+          echo "Buildozer Android debug build completed."
 
-      - name: Build APK using Buildozer Action
-        # This action handles Python setup, Buildozer installation,
-        # Android SDK/NDK download, license acceptance, and the build process
-        # based on your buildozer.spec file.
-        # We've already installed Buildozer in a previous step for 'buildozer init'.
-        # This action will re-install it, but it's fine.
-        uses: ArtemSBulgakov/buildozer-action@v1
-        id: buildozer
+      - name: Upload APK artifact
+        uses: actions/upload-artifact@v4 # Action to upload the generated APK as a workflow artifact
         with:
-          command: buildozer android debug
-          # buildozer_version: stable # This parameter is not valid for this action and has been removed.
+          name: android-apk # The name of the artifact
+          path: bin/*.apk # Buildozer places the compiled APK files in the 'bin' directory
+          retention-days: 7 # How long to keep the artifact (optional)
 
-      - name: Upload APK
-        uses: actions/upload-artifact@v4
-        with:
-          name: myapp-debug-apk
-          path: ${{ steps.buildozer.outputs.filename }} # Path to the generated APK from the action
-          retention-days: 7 # How long the artifact will be stored on GitHub
+      - name: Notify on success (Optional)
+        if: success() # This step runs only if the previous steps were successful
+        run: echo "Android APK build successful! Check the 'Artifacts' section of this workflow run for the APK."
+
+      - name: Notify on failure (Optional)
+        if: failure() # This step runs only if any previous step failed
+        run: echo "Android APK build failed. Please review the workflow logs for errors."
