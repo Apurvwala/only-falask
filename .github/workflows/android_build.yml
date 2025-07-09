@@ -16,7 +16,7 @@ jobs:
         uses: actions/checkout@v4 # Action to check out your repository code into the runner
 
       - name: Set up Python
-        uses: actions/setup-python@v5 # Action to set up a specific Python version
+        uses: actions.setup-python@v5 # Action to set up a specific Python version
         with:
           python-version: '3.9' # Kivy and Buildozer often work well with Python 3.9
 
@@ -40,6 +40,18 @@ jobs:
             exit 1
           fi
           echo "buildozer.spec found. Proceeding with build."
+
+      - name: Force Android API Level in buildozer.spec
+        # This step ensures that 'android.api' and 'android.targetsdk' are set to a stable version (e.g., 33).
+        # This helps prevent issues with Buildozer trying to download non-existent or unstable build tools
+        # if your local buildozer.spec or Buildozer's defaults point to a higher, unreleased API level.
+        run: |
+          sed -i '/^android\.api =/c\android.api = 33' buildozer.spec || true
+          sed -i '/^android\.targetsdk =/c\android.targetsdk = 33' buildozer.spec || true
+          # Optionally, remove android.sdk if it's present, letting buildozer default based on api level
+          sed -i '/^android\.sdk =/d' buildozer.spec || true
+          echo "buildozer.spec updated to use Android API 33."
+          cat buildozer.spec # Print the updated spec for verification in logs
 
       - name: Build Android Debug APK
         # This is the core Buildozer command to create the Android APK.
