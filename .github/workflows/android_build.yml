@@ -65,9 +65,12 @@ jobs:
           sed -i '/^android\.targetsdk =/c\android.targetsdk = 33' buildozer.spec
           sed -i '/^android\.sdk =/d' buildozer.spec || true # Remove android.sdk if present
 
-          # Explicitly set Android NDK version to a known stable one for API 33
-          sed -i '/^#android\.ndk =/c\android.ndk = 25b' buildozer.spec || true # Add or update NDK version
-          # If android.ndk is already present but commented out or different, ensure it's 25b
+          # Explicitly set Android NDK version to a known stable one (e.g., 23b)
+          # This can sometimes resolve compatibility issues with specific libraries like libffi.
+          sed -i '/^#android\.ndk =/c\android.ndk = 23b' buildozer.spec || true
+          # Ensure this line is uncommented if it was already present but commented out
+          sed -i 's/^#\(android\.ndk = 23b\)/\1/' buildozer.spec || true
+
 
           # Ensure all Python requirements are listed
           sed -i 's/^#requirements = python3,kivy$/requirements = python3,kivy,flask,numpy,requests,face_recognition,Pillow/' buildozer.spec
@@ -78,6 +81,15 @@ jobs:
           # Set package name and domain (customize these in your actual buildozer.spec file)
           sed -i 's/^#package\.name = org\.test\.myapp$/package.name = com.yourcompany.faceappattendance/' buildozer.spec
           sed -i 's/^#package\.domain = org\.test$/package.domain = yourcompany.com/' buildozer.spec
+
+          # Set Buildozer log level to verbose (2) for detailed debugging
+          # This helps in diagnosing build issues by providing more output.
+          sed -i '/^#log_level = 1$/c\log_level = 2' buildozer.spec || true
+          # If log_level is not present, add it to the [buildozer] section
+          if ! grep -q "log_level" buildozer.spec; then
+            sed -i '/^\[buildozer\]/a log_level = 2' buildozer.spec
+          fi
+
 
           echo "Final buildozer.spec content after configuration:"
           cat buildozer.spec # Print the updated spec for verification in logs
@@ -91,13 +103,14 @@ jobs:
           yes | buildozer android update # 'yes' command automatically inputs 'y' for prompts
           echo "Android SDK licenses accepted."
 
-      - name: Clean previous Buildozer build artifacts
-        # Clean the build directory to ensure a fresh build and avoid cached issues.
+      - name: Clean previous Buildozer build artifacts (Aggressive)
+        # Perform a deep clean to remove all downloaded SDKs, NDKs, and build environments.
+        # This ensures a completely fresh build and can resolve persistent issues.
         run: |
           set -e
-          echo "Cleaning Buildozer build artifacts..."
-          buildozer android clean
-          echo "Buildozer clean completed."
+          echo "Performing aggressive Buildozer clean (distclean)..."
+          buildozer android distclean
+          echo "Buildozer distclean completed."
 
       - name: Build Android Debug APK
         # This command triggers the full Buildozer build process.
