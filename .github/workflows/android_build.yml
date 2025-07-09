@@ -8,7 +8,7 @@ on:
 
 jobs:
   build:
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-22.04  # more stable for buildozer
 
     steps:
     - name: Checkout Code
@@ -44,9 +44,9 @@ jobs:
           libgles2-mesa-dev
 
         pip install --upgrade pip
-        pip install buildozer cython
+        pip install "buildozer[android]"
 
-    - name: Initialize Buildozer
+    - name: Clean Build
       run: |
         buildozer android clean
 
