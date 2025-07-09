@@ -8,23 +8,57 @@ on:
 jobs:
   build:
     runs-on: ubuntu-latest
-    timeout-minutes: 60 # Set a timeout for the entire job
+    timeout-minutes: 120 # Increased timeout for initial Buildozer setup (can be very long)
 
     steps:
       - name: Checkout code
         uses: actions/checkout@v4
 
-      - name: Build APK using Buildozer
+      - name: Install Buildozer (manual install for init step)
+        # We need Buildozer installed here to run 'buildozer init' if the spec is missing.
+        run: |
+          pip install buildozer
+          # Install basic system dependencies needed for buildozer init and subsequent steps
+          sudo apt-get update
+          sudo apt-get install -y git zip unzip python3-pip autoconf libtool pkg-config zlib1g-dev libncurses-dev libffi-dev libssl-dev
+
+      - name: Initialize or Verify buildozer.spec
+        # This step ensures that a buildozer.spec file exists and has a basic structure.
+        # If buildozer.spec doesn't exist, 'buildozer init' will create a default one.
+        # If it exists, this step effectively verifies its presence before modification.
+        run: |
+          set -e # Exit immediately if a command exits with a non-zero status.
+          if [ ! -f buildozer.spec ]; then
+            echo "buildozer.spec not found. Initializing with 'buildozer init'..."
+            buildozer init
+            # After init, ensure basic requirements and permissions are set for the build to proceed
+            sed -i 's/^#requirements = python3,kivy$/requirements = python3,kivy,flask,numpy,requests,face_recognition,Pillow/' buildozer.spec || true
+            sed -i 's/^#android\.permissions =/android.permissions = INTERNET,CAMERA,READ_EXTERNAL_STORAGE,WRITE_EXTERNAL_STORAGE/' buildozer.spec || true
+            echo "Default buildozer.spec created and basic requirements/permissions set."
+          else
+            echo "buildozer.spec found. Proceeding with modifications."
+          fi
+          # Ensure Android API levels are set to a stable version (e.g., 33)
+          # This helps prevent issues with Buildozer trying to download non-existent or unstable build tools.
+          sed -i '/^android\.api =/c\android.api = 33' buildozer.spec || true
+          sed -i '/^android\.targetsdk =/c\android.targetsdk = 33' buildozer.spec || true
+          # Optionally, remove android.sdk if it's present, letting buildozer default based on api level
+          sed -i '/^android\.sdk =/d' buildozer.spec || true
+          echo "buildozer.spec updated to use Android API 33."
+          cat buildozer.spec # Print the updated spec for verification in logs
+
+
+      - name: Build APK using Buildozer Action
         # This action handles Python setup, Buildozer installation,
         # Android SDK/NDK download, license acceptance, and the build process
         # based on your buildozer.spec file.
+        # We've already installed Buildozer in a previous step for 'buildozer init'.
+        # This action will re-install it, but it's fine.
         uses: ArtemSBulgakov/buildozer-action@v1
         id: buildozer
         with:
           command: buildozer android debug
-          buildozer_version: stable
-          # No need for manual Python setup, environment variables, or sdkmanager calls here,
-          # as the action manages them internally.
+          # buildozer_version: stable # This parameter is not valid for this action and has been removed.
 
       - name: Upload APK
         uses: actions/upload-artifact@v4
