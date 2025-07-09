@@ -8,7 +8,7 @@ on:
 
 jobs:
   build:
-    runs-on: ubuntu-22.04  # more stable for buildozer
+    runs-on: ubuntu-22.04
 
     steps:
     - name: Checkout Code
@@ -19,7 +19,7 @@ jobs:
       with:
         python-version: '3.10'
 
-    - name: Install dependencies
+    - name: Install system dependencies
       run: |
         sudo apt update
         sudo apt install -y \
@@ -43,16 +43,17 @@ jobs:
           libgl1-mesa-dev \
           libgles2-mesa-dev
 
+    - name: Install Buildozer with Android support
+      run: |
         pip install --upgrade pip
         pip install "buildozer[android]"
 
-    - name: Clean Build
-      run: |
-        buildozer android clean
+    # DO NOT clean before python-for-android exists!
+    # - name: Clean previous builds
+    #   run: buildozer android clean
 
     - name: Build APK
-      run: |
-        buildozer android debug
+      run: buildozer android debug
 
     - name: Upload APK
       uses: actions/upload-artifact@v4
