@@ -10,7 +10,7 @@ jobs:
     runs-on: ubuntu-22.04
 
     steps:
-      - name: Checkout code
+      - name: Checkout repository
         uses: actions/checkout@v4
 
       - name: Set up Python
@@ -29,38 +29,25 @@ jobs:
             libsdl2-dev libsdl2-image-dev libsdl2-mixer-dev libsdl2-ttf-dev \
             libportmidi-dev libswscale-dev libavformat-dev libavcodec-dev \
             libfreetype6-dev libgl1-mesa-dev libgles2-mesa-dev \
-            libgstreamer1.0-dev \
-            gstreamer1.0-plugins-base gstreamer1.0-plugins-good \
             libmtdev-dev \
             build-essential autoconf libtool pkg-config \
             git python3-setuptools
 
-      - name: Upgrade pip and install Buildozer
+      - name: Install Cython and Buildozer
         run: |
-          python3 -m pip install --upgrade pip
-          pip install cython==0.29.36 virtualenv
+          pip install --upgrade pip Cython==0.29.36
           pip install buildozer
 
-      - name: Set up Android SDK/NDK
+      - name: Create .buildozer folder if missing
         run: |
-          sudo apt-get install -y adb
-          yes | sdkmanager --licenses || true
+          mkdir -p .buildozer
 
-      - name: Initialize Buildozer
+      - name: Build APK with Buildozer
         run: |
-          buildozer init
-          sed -i 's/^# *android.permissions = INTERNET/ android.permissions = INTERNET/g' buildozer.spec
-          sed -i 's/^# *android.ndk_api = 21/android.ndk_api = 21/g' buildozer.spec
-          sed -i 's/^# *android.minapi = 21/android.minapi = 21/g' buildozer.spec
-          sed -i 's/^# *requirements =.*/requirements = python3,kivy,flask,numpy,requests,face_recognition,Pillow/g' buildozer.spec
-          sed -i 's/^# *package.name =.*/package.name = FaceAppAttendance/g' buildozer.spec
-          sed -i 's/^# *package.domain =.*/package.domain = org.kivy.garden/g' buildozer.spec
+          buildozer android debug
 
-      - name: Build APK
-        run: buildozer android debug
-
-      - name: Upload APK
+      - name: Upload APK artifact
         uses: actions/upload-artifact@v4
         with:
-          name: faceappattendance-apk
+          name: faceappattendance-debug.apk
           path: bin/*.apk
